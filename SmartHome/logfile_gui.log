@@ -1,0 +1,36 @@
+2023-05-20 22:35:02,627 : ERROR : __main__ : GUI Crash!
+Traceback (most recent call last):
+  File "C:\Users\maypo\Documents\pythonProject\IOTHomeManagmentSystem\SmartHome\gui.py", line 510, in <module>
+    mainwin = MainWindow()
+  File "C:\Users\maypo\Documents\pythonProject\IOTHomeManagmentSystem\SmartHome\gui.py", line 497, in __init__
+    self.snifferDock = SnifferDock(self.mc)
+  File "C:\Users\maypo\Documents\pythonProject\IOTHomeManagmentSystem\SmartHome\gui.py", line 456, in __init__
+    self.eStartSniffingButton.clicked.connect(self.on_button_start_click)
+AttributeError: 'SnifferDock' object has no attribute 'on_button_start_click'
+2023-05-20 22:35:17,471 : ERROR : __main__ : GUI Crash!
+Traceback (most recent call last):
+  File "C:\Users\maypo\Documents\pythonProject\IOTHomeManagmentSystem\SmartHome\gui.py", line 510, in <module>
+    mainwin = MainWindow()
+  File "C:\Users\maypo\Documents\pythonProject\IOTHomeManagmentSystem\SmartHome\gui.py", line 497, in __init__
+    self.snifferDock = SnifferDock(self.mc)
+  File "C:\Users\maypo\Documents\pythonProject\IOTHomeManagmentSystem\SmartHome\gui.py", line 456, in __init__
+    self.eStartSniffingButton.clicked.connect(self.on_button_start_click)
+AttributeError: 'SnifferDock' object has no attribute 'on_button_start_click'
+2023-05-20 22:36:06,817 : ERROR : __main__ : GUI Crash!
+Traceback (most recent call last):
+  File "C:\Users\maypo\Documents\pythonProject\IOTHomeManagmentSystem\SmartHome\gui.py", line 510, in <module>
+    mainwin = MainWindow()
+  File "C:\Users\maypo\Documents\pythonProject\IOTHomeManagmentSystem\SmartHome\gui.py", line 497, in __init__
+    self.snifferDock = SnifferDock(self.mc)
+  File "C:\Users\maypo\Documents\pythonProject\IOTHomeManagmentSystem\SmartHome\gui.py", line 456, in __init__
+    self.eStartSniffingButton.clicked.connect(self.on_button_start_click)
+AttributeError: 'SnifferDock' object has no attribute 'on_button_start_click'
+2023-05-20 22:36:24,138 : ERROR : __main__ : GUI Crash!
+Traceback (most recent call last):
+  File "C:\Users\maypo\Documents\pythonProject\IOTHomeManagmentSystem\SmartHome\gui.py", line 519, in <module>
+    mainwin = MainWindow()
+  File "C:\Users\maypo\Documents\pythonProject\IOTHomeManagmentSystem\SmartHome\gui.py", line 506, in __init__
+    self.snifferDock = SnifferDock(self.mc)
+  File "C:\Users\maypo\Documents\pythonProject\IOTHomeManagmentSystem\SmartHome\gui.py", line 468, in __init__
+    formLayot.addRow("", self.eSubscribeButton)
+AttributeError: 'SnifferDock' object has no attribute 'eSubscribeButton'

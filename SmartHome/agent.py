@@ -1,7 +1,8 @@
 import paho.mqtt.client as mqtt
 from init import *
 from icecream import ic
-from datetime import datetime 
+from datetime import datetime
+import sniffer as sniffer
 
 def time_format():
     return f'{datetime.now()}  Agent|> '
@@ -118,5 +119,9 @@ class Mqtt_client():
         if self.connected:
             self.client.publish(topic,message)
         else:
-            ic("Can't publish. Connecection should be established first")            
+            ic("Can't publish. Connecection should be established first")
+
+    def start_netwrok_sniffer(self):
+        sniffer.scan_network()
+
   

@@ -444,6 +444,49 @@ class PlotDock(QDockWidget):
     def plot(self, timel, datal):
         self.data_line.setData( datal)  # Update the data.
 
+
+class SnifferDock(QDockWidget):
+    """Sniffer """
+
+    def __init__(self, mc):
+        QDockWidget.__init__(self)
+        self.mc = mc
+        self.sniffData = QLabel()
+        self.sniffData.setStyleSheet("color: blue")
+        self.eRecMess = QTextEdit()
+        self.eStartSniffingButton = QPushButton("Start", self)
+        self.eStartSniffingButton.clicked.connect(self.on_button_start_click)
+        self.eStopSniffingButton = QPushButton("Stop", self)
+        self.eStopSniffingButton.clicked.connect(self.on_button_stop_click)
+        formLayot = QFormLayout()
+        formLayot.addRow("detected devices in network:", self.sniffData)
+        formLayot.addRow(self.eRecMess)
+        formLayot.addRow(self.eStartSniffingButton)
+        formLayot.addRow(self.eStopSniffingButton)
+        widget = QWidget(self)
+        widget.setLayout(formLayot)
+        self.setTitleBarWidget(widget)
+        self.setWidget(widget)
+        self.setWindowTitle("Sniffer")
+
+    def on_button_start_click(self):
+        self.mc.start_netwrok_sniffer()
+        self.update_mess_win("started")
+        self.eStartSniffingButton.setStyleSheet("background-color: green")
+
+    def on_button_stop_click(self):
+        self.mc.subscribe_to(comm_topic + 'alarm')
+        self.eStopSniffingButton.setStyleSheet("background-color: green")
+
+    # create function that update text in received message window
+    def update_mess_win(self, text):
+        self.eRecMess.append(text)
+
+    def on_button_publish_click(self):
+        self.mc.publish_to(self.ePublisherTopic.text(), self.eMessageBox.toPlainText())
+        self.ePublishButton.setStyleSheet("background-color: yellow")
+
+
 class MainWindow(QMainWindow):    
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)                
@@ -461,6 +504,7 @@ class MainWindow(QMainWindow):
         self.tempDock = TempDock(self.mc)
         self.graphsDock = GraphsDock(self.mc)
         self.airconditionDock= AirconditionDock(self.mc)
+        self.snifferDock = SnifferDock(self.mc)
         self.plotsDock = PlotDock()
         self.addDockWidget(Qt.TopDockWidgetArea, self.connectionDock)
         self.addDockWidget(Qt.TopDockWidgetArea, self.tempDock)
@@ -468,6 +512,7 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.BottomDockWidgetArea, self.statusDock)
         self.addDockWidget(Qt.BottomDockWidgetArea, self.graphsDock)
         self.addDockWidget(Qt.BottomDockWidgetArea, self.plotsDock)       
+        self.addDockWidget(Qt.BottomDockWidgetArea, self.snifferDock)
 
 if __name__ == "__main__":
     try:
