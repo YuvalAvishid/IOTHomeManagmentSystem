@@ -470,13 +470,16 @@ class SnifferDock(QDockWidget):
         self.setWindowTitle("Sniffer")
 
     def on_button_start_click(self):
-        self.mc.start_netwrok_sniffer()
+        self.mc.get_sniffer_events().on_all_devices_detected += self.update_mess_win
+        self.mc.start_network_sniffer()
         self.update_mess_win("started")
         self.eStartSniffingButton.setStyleSheet("background-color: green")
 
     def on_button_stop_click(self):
-        self.mc.subscribe_to(comm_topic + 'alarm')
-        self.eStopSniffingButton.setStyleSheet("background-color: green")
+        self.mc.get_sniffer_events().on_all_devices_detected -= self.update_mess_win
+        self.mc.stop_network_sniffer()
+        self.update_mess_win("stopped")
+        self.eStartSniffingButton.setStyleSheet("background-color: green")
 
     # create function that update text in received message window
     def update_mess_win(self, text):

@@ -2,62 +2,125 @@ import scapy.all as scapy
 import time
 import socket
 import requests
+import threading
+from events import Events
 
-mac_list = dict()
 
-def get_company_name(mac_address):
-    url = f"https://api.maclookup.app/v2/macs/{mac_address}/company/name"
-    response = requests.get(url)
+class ScannerEvents(Events):
+    __events__ = ('on_device_detected', 'on_all_devices_detected')
 
-    if response.status_code == 200:
-        company_name = response.content.decode('utf-8')
-        return company_name
-    else:
-        return 'Unknown'
 
-def get_ip():
-    hostname = socket.gethostname()
-    IPAddr = socket.gethostbyname(hostname)
-    return IPAddr
+events = ScannerEvents()
 
-def transform_ip_port(ip):
-    # Split the IP address by the dot separator
-    ip_parts = ip.split('.')
-    # Remove the last part of the IP address (x) and add '1/24' instead
-    ip_parts[-1] = '1/24'
-    # Join the IP address parts back together with dots
-    transformed_ip = '.'.join(ip_parts)
+threadRunner = True
 
-    return transformed_ip
 
-def scan_network():
-    ip = get_ip()
-    ip_r = transform_ip_port(ip)
-    # Define the range of IP addresses to scan - Will define the target IP in the file.
-    ip_range = ip_r
+class ScannerThread(threading.Thread):
+    def __init__(self):
+        super().__init__()
 
-    # Create an ARP request packet to send to the broadcast MAC address
-    arp_request = scapy.ARP(pdst=ip_range)
-    broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
-    arp_request_broadcast = broadcast / arp_request
+    def run(self):
+        global threadRunner
+        threadRunner = True
+        while threadRunner:
+            # Perform your desired operations in the infinite loop
+            network_scanner().scan_network()
+            print("Scanning...")
+            time.sleep(5)
 
-    # Send the packet and capture the responses
-    answered, _ = scapy.srp(arp_request_broadcast, timeout=1, verbose=False)
+    def stop(self):
+        global threadRunner
+        threadRunner = False
 
-    # Check if the MAC address has already been seen before
-    for packet in answered:
-        mac_address = packet[1].hwsrc
-        if mac_address not in mac_list:
-            company_name = get_company_name(mac_address)
-            mac_list[mac_address] = company_name
-            print(f"New device detected! IP: {packet[1].psrc}\tMAC: {mac_address} Company: {company_name}")
+
+class network_scanner():
+
+    def __init__(self):
+        # start
+        self.mac_list = dict()
+        self.should_scan_network = True
+        self.t1 = threading.Thread()
+        self.scan_thread = ScannerThread()
+        self.running = False
+        self.data = ""
+
+    def get_company_name(self, mac_address):
+        url = f"https://api.maclookup.app/v2/macs/{mac_address}/company/name"
+        response = requests.get(url)
+
+        if response.status_code == 200:
+            company_name = response.content.decode('utf-8')
+            return company_name
         else:
-            if mac_list[mac_address] == 'Unknown':
-                company_name = get_company_name(mac_address)
-                mac_list[mac_address] = company_name
-                print(f"Update device: {packet[1].psrc}\tMAC: {mac_address} Company: {company_name}")
+            return 'Unknown'
 
-if __name__ == '__main__':
-    while True:
-        scan_network()
-        time.sleep(10)  # wait 10 seconds before scanning again
+    def get_ip(self):
+        hostname = socket.gethostname()
+        IPAddr = socket.gethostbyname(hostname)
+        return IPAddr
+
+    def transform_ip_port(self, ip):
+        # Split the IP address by the dot separator
+        ip_parts = ip.split('.')
+        # Remove the last part of the IP address (x) and add '1/24' instead
+        ip_parts[-1] = '1/24'
+        # Join the IP address parts back together with dots
+        transformed_ip = '.'.join(ip_parts)
+
+        return transformed_ip
+
+    def on_device_detected(self, ip, mac, source):
+        device = f"New device detected! IP: {ip}\t MAC: {mac}\t Company: {source}"
+        self.data += f"{device}\n"
+        events.on_device_detected(device)
+        return device
+
+    def on_all_devices_detected(self):
+        events.on_all_devices_detected(self.data)
+        self.data = ""
+
+    def on_detected_device_updated(self, ip, mac, source):
+        device = f"Update device: {ip}\tMAC: {mac} Company: {source}"
+        self.data += f"{device}\n"
+        events.on_device_detected(device)
+        return device
+
+    def scan_network(self):
+        ip = self.get_ip()
+        ip_r = self.transform_ip_port(ip)
+        # Define the range of IP addresses to scan - Will define the target IP in the file.
+        ip_range = ip_r
+
+        # Create an ARP request packet to send to the broadcast MAC address
+        arp_request = scapy.ARP(pdst=ip_range)
+        broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
+        arp_request_broadcast = broadcast / arp_request
+
+        # Send the packet and capture the responses
+        answered, _ = scapy.srp(arp_request_broadcast, timeout=1, verbose=False)
+
+        # Check if the MAC address has already been seen before
+        for packet in answered:
+            mac_address = packet[1].hwsrc
+            if mac_address not in self.mac_list:
+                company_name = self.get_company_name(mac_address)
+                self.mac_list[mac_address] = company_name
+                print(self.on_device_detected(packet[1].psrc, mac_address, company_name))
+            else:
+                if self.mac_list[mac_address] == 'Unknown':
+                    company_name = self.get_company_name(mac_address)
+                    self.mac_list[mac_address] = company_name
+                    print(self.on_detected_device_updated(packet[1].psrc, mac_address, company_name))
+
+        self.on_all_devices_detected()
+
+    def start_network_scanning(self):
+
+        self.scan_thread.start()
+
+    def stop_network_scanning(self):
+        self.scan_thread.stop()
+
+    def wait_for_completion(self):
+        if self.scan_thread is not None and self.scan_thread.is_alive():
+            self.scan_thread.join()
