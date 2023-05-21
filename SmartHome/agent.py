@@ -121,7 +121,13 @@ class Mqtt_client():
         else:
             ic("Can't publish. Connecection should be established first")
 
-    def start_netwrok_sniffer(self):
-        sniffer.scan_network()
+    def start_network_sniffer(self):
+        sniffer.network_scanner().start_network_scanning()
+
+    def stop_network_sniffer(self):
+        sniffer.network_scanner().stop_network_scanning()
+
+    def get_sniffer_events(self):
+        return sniffer.events
 
   
