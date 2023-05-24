@@ -11,8 +11,8 @@ class ScannerEvents(Events):
 
 
 events = ScannerEvents()
-
 threadRunner = True
+whitelist = []
 
 
 class ScannerThread(threading.Thread):
@@ -70,8 +70,12 @@ class network_scanner():
         return transformed_ip
 
     def on_device_detected(self, ip, mac, source):
+        global whitelist
+        if mac in whitelist:
+            return
         device = f"New device detected! IP: {ip}\t MAC: {mac}\t Company: {source}"
         self.data += f"{device}\n"
+        whitelist.append(mac)
         events.on_device_detected(device)
         return device
 
@@ -105,7 +109,9 @@ class network_scanner():
             if mac_address not in self.mac_list:
                 company_name = self.get_company_name(mac_address)
                 self.mac_list[mac_address] = company_name
-                print(self.on_device_detected(packet[1].psrc, mac_address, company_name))
+                data_to_print = self.on_device_detected(packet[1].psrc, mac_address, company_name)
+                if data_to_print is not None:
+                    print(data_to_print)
             else:
                 if self.mac_list[mac_address] == 'Unknown':
                     company_name = self.get_company_name(mac_address)
