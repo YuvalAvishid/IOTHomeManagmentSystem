@@ -90,10 +90,11 @@ class network_scanner():
         return device
 
     def scan_network(self):
+        should_print = False
+
         ip = self.get_ip()
-        ip_r = self.transform_ip_port(ip)
         # Define the range of IP addresses to scan - Will define the target IP in the file.
-        ip_range = ip_r
+        ip_range = self.transform_ip_port(ip)
 
         # Create an ARP request packet to send to the broadcast MAC address
         arp_request = scapy.ARP(pdst=ip_range)
@@ -112,13 +113,16 @@ class network_scanner():
                 data_to_print = self.on_device_detected(packet[1].psrc, mac_address, company_name)
                 if data_to_print is not None:
                     print(data_to_print)
+                    should_print = True
             else:
                 if self.mac_list[mac_address] == 'Unknown':
                     company_name = self.get_company_name(mac_address)
                     self.mac_list[mac_address] = company_name
                     print(self.on_detected_device_updated(packet[1].psrc, mac_address, company_name))
+                    should_print = True
 
-        self.on_all_devices_detected()
+        if should_print:
+            self.on_all_devices_detected()
 
     def start_network_scanning(self):
 
