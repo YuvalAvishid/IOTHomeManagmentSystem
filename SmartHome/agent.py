@@ -27,6 +27,7 @@ class Mqtt_client():
         self.on_connected_to_form = ''
         self.connected = False
         self.subscribed = False
+        self.network_scanner = sniffer.network_scanner()
         
     # Setters and getters
     def set_on_connected_to_form(self,on_connected_to_form):
@@ -122,10 +123,10 @@ class Mqtt_client():
             ic("Can't publish. Connecection should be established first")
 
     def start_network_sniffer(self):
-        sniffer.network_scanner().start_network_scanning()
+        self.network_scanner.start_network_scanning()
 
     def stop_network_sniffer(self):
-        sniffer.network_scanner().stop_network_scanning()
+        self.network_scanner.stop_network_scanning()
 
     def get_sniffer_events(self):
         return sniffer.events

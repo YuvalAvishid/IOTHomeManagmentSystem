@@ -16,15 +16,16 @@ whitelist = []
 
 
 class ScannerThread(threading.Thread):
-    def __init__(self):
+    def __init__(self, scanner):
         super().__init__()
+        self.scanner = scanner
 
     def run(self):
         global threadRunner
         threadRunner = True
         while threadRunner:
             # Perform your desired operations in the infinite loop
-            network_scanner().scan_network()
+            self.scanner.scan_network()
             print("Scanning...")
             time.sleep(5)
 
@@ -40,9 +41,12 @@ class network_scanner():
         self.mac_list = dict()
         self.should_scan_network = True
         self.t1 = threading.Thread()
-        self.scan_thread = ScannerThread()
         self.running = False
         self.data = ""
+        self.ip = self.get_ip()
+        # Define the range of IP addresses to scan - Will define the target IP in the file.
+        self.ip_range = self.transform_ip_port(self.ip)
+        self.scan_thread = None
 
     def get_company_name(self, mac_address):
         url = f"https://api.maclookup.app/v2/macs/{mac_address}/company/name"
@@ -55,9 +59,11 @@ class network_scanner():
             return 'Unknown'
 
     def get_ip(self):
-        hostname = socket.gethostname()
-        IPAddr = socket.gethostbyname(hostname)
-        return IPAddr
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 53)) # 53 is the port of the DNS that belongs to Google.
+        ip_addr = s.getsockname()[0]
+        s.close()
+        return ip_addr
 
     def transform_ip_port(self, ip):
         # Split the IP address by the dot separator
@@ -92,12 +98,8 @@ class network_scanner():
     def scan_network(self):
         should_print = False
 
-        ip = self.get_ip()
-        # Define the range of IP addresses to scan - Will define the target IP in the file.
-        ip_range = self.transform_ip_port(ip)
-
         # Create an ARP request packet to send to the broadcast MAC address
-        arp_request = scapy.ARP(pdst=ip_range)
+        arp_request = scapy.ARP(pdst=self.ip_range)
         broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
         arp_request_broadcast = broadcast / arp_request
 
@@ -122,14 +124,18 @@ class network_scanner():
                     should_print = True
 
         if should_print:
+            self.data = self.data.rstrip('\n')
             self.on_all_devices_detected()
 
     def start_network_scanning(self):
-
-        self.scan_thread.start()
+        if self.scan_thread is None or not self.scan_thread.is_alive():
+            self.scan_thread = ScannerThread(self)  # Create a new instance of ScannerThread
+            self.scan_thread.start()
 
     def stop_network_scanning(self):
-        self.scan_thread.stop()
+        if self.scan_thread is not None and self.scan_thread.is_alive():
+            self.scan_thread.stop()
+            self.scan_thread = None
 
     def wait_for_completion(self):
         if self.scan_thread is not None and self.scan_thread.is_alive():
