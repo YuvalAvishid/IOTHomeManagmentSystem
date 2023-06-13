@@ -490,6 +490,78 @@ class SnifferDock(QDockWidget):
         self.ePublishButton.setStyleSheet("background-color: yellow")
 
 
+class WhiteListDock(QDockWidget):
+    """White List"""
+
+    def __init__(self, mc):
+        QDockWidget.__init__(self)
+        self.mc = mc
+        self.sniffData = QLabel()
+        self.sniffData.setStyleSheet("color: blue")
+        self.eRecMess = QTextEdit()
+
+        # Create the necessary widgets for the white list functionality
+        self.macLineEdit = QLineEdit()
+        self.addButton = QPushButton("Add to White List")
+        self.deleteButton = QPushButton("Delete Selected")
+        self.whiteListWidget = QTextEdit()
+        self.whiteListWidget.setReadOnly(True)
+        self.whiteListWidget.setAcceptRichText(False)
+
+        # Connect the buttons to the appropriate slots
+        self.addButton.clicked.connect(self.addMacToWhiteList)
+        self.deleteButton.clicked.connect(self.deleteSelectedMac)
+
+        # Create the layout for the white list section
+        whiteListLayout = QVBoxLayout()
+        whiteListLayout.addWidget(self.macLineEdit)
+
+        buttonLayout = QHBoxLayout()
+        buttonLayout.addWidget(self.addButton)
+        buttonLayout.addWidget(self.deleteButton)
+
+        whiteListLayout.addLayout(buttonLayout)
+        whiteListLayout.addWidget(self.whiteListWidget)
+
+        # Create a main widget and set the layout
+        widget = QWidget(self)
+        widget.setLayout(whiteListLayout)
+
+        self.setTitleBarWidget(widget)
+        self.setWidget(widget)
+        self.setWindowTitle("White List")
+
+        # Initialize the white list
+        self.white_list = []
+
+    def addMacToWhiteList(self):
+        mac_address = self.macLineEdit.text()
+        if mac_address:
+            self.white_list.append(mac_address)
+            self.updateWhiteListWidget()
+            self.macLineEdit.clear()
+
+    def deleteSelectedMac(self):
+        cursor = self.whiteListWidget.textCursor()
+        cursor.select(QTextCursor.WordUnderCursor)
+        selected_text = cursor.selectedText()
+
+        if selected_text:
+            # Ask for confirmation before deleting
+            confirm = QMessageBox.question(self, "Confirmation",
+                                           f"Are you sure you want to delete the selected MAC address: '{selected_text}'?",
+                                           QMessageBox.Yes | QMessageBox.No)
+
+            if confirm == QMessageBox.Yes:
+                self.white_list.remove(selected_text)
+                self.updateWhiteListWidget()
+
+    def updateWhiteListWidget(self):
+        self.whiteListWidget.clear()
+        for mac_address in self.white_list:
+            self.whiteListWidget.append(mac_address)
+
+
 class MainWindow(QMainWindow):    
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)                
@@ -508,6 +580,7 @@ class MainWindow(QMainWindow):
         self.graphsDock = GraphsDock(self.mc)
         self.airconditionDock= AirconditionDock(self.mc)
         self.snifferDock = SnifferDock(self.mc)
+        self.whiteListDock = WhiteListDock(self.mc)
         self.plotsDock = PlotDock()
         self.addDockWidget(Qt.TopDockWidgetArea, self.connectionDock)
         self.addDockWidget(Qt.TopDockWidgetArea, self.tempDock)
@@ -516,6 +589,7 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.BottomDockWidgetArea, self.graphsDock)
         self.addDockWidget(Qt.BottomDockWidgetArea, self.plotsDock)       
         self.addDockWidget(Qt.BottomDockWidgetArea, self.snifferDock)
+        self.addDockWidget(Qt.BottomDockWidgetArea, self.whiteListDock)
 
 if __name__ == "__main__":
     try:
