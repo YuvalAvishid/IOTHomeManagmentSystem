@@ -20,6 +20,8 @@ import pyqtgraph as pg
 
 import logging
 import re
+import sqlite3
+from init import *
 
 # Gets or creates a logger
 logger = logging.getLogger(__name__)  
@@ -510,6 +512,7 @@ class WhiteListDock(QDockWidget):
         self.sniffData = QLabel()
         self.sniffData.setStyleSheet("color: blue")
         self.eRecMess = QTextEdit()
+        self.saveButton = QPushButton("Save", self)
 
         # Create the necessary widgets for the white list functionality
         self.macLineEdit = QLineEdit()
@@ -519,9 +522,11 @@ class WhiteListDock(QDockWidget):
         self.whiteListWidget.setReadOnly(True)
         self.whiteListWidget.setAcceptRichText(False)
 
+
         # Connect the buttons to the appropriate slots
         self.addButton.clicked.connect(self.addMacToWhiteList)
         self.deleteButton.clicked.connect(self.deleteSelectedMac)
+        self.saveButton.clicked.connect(self.saveWhiteList)
 
         # Create the layout for the white list section
         whiteListLayout = QVBoxLayout()
@@ -533,6 +538,7 @@ class WhiteListDock(QDockWidget):
 
         whiteListLayout.addLayout(buttonLayout)
         whiteListLayout.addWidget(self.whiteListWidget)
+        whiteListLayout.addWidget(self.saveButton)
 
         # Create a main widget and set the layout
         widget = QWidget(self)
@@ -544,6 +550,7 @@ class WhiteListDock(QDockWidget):
 
         # Initialize the white list
         self.white_list = []
+        self.loadWhiteList()
 
     def addMacToWhiteList(self):
         mac_address = self.macLineEdit.text()
@@ -590,6 +597,66 @@ class WhiteListDock(QDockWidget):
         self.whiteListWidget.clear()
         for mac_address in self.white_list:
             self.whiteListWidget.append(mac_address)
+
+    def saveWhiteList(self):
+        # Open a connection to the existing database
+        conn = sqlite3.connect(db_name)
+        cursor = conn.cursor()
+
+        # Check if the table exists, and if not, create it
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='white_list'")
+        table_exists = cursor.fetchone()
+        if not table_exists:
+            cursor.execute("CREATE TABLE white_list (mac_address TEXT)")
+
+        # Get the existing MAC addresses from the database
+        cursor.execute("SELECT mac_address FROM white_list")
+        existing_mac_addresses = [row[0] for row in cursor.fetchall()]
+
+        # Insert or update each white list item
+        for mac_address in self.white_list:
+            if mac_address not in existing_mac_addresses:
+                # MAC address doesn't exist in the database, perform insert
+                cursor.execute("INSERT INTO white_list (mac_address) VALUES (?)", (mac_address,))
+            else:
+                existing_mac_addresses.remove(mac_address)
+
+        # Delete any remaining MAC addresses from the database
+        for mac_address in existing_mac_addresses:
+            cursor.execute("DELETE FROM white_list WHERE mac_address=?", (mac_address,))
+
+        # Commit the changes and close the connection
+        conn.commit()
+        conn.close()
+
+    def loadWhiteList(self):
+        # Open a connection to the existing database
+        conn = sqlite3.connect(db_name)
+        cursor = conn.cursor()
+
+        # Check if the table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='white_list'")
+        table_exists = cursor.fetchone()
+        if not table_exists:
+            # Table doesn't exist, return or handle the case as needed
+            conn.close()
+            return
+
+        # Fetch all rows from the white_list table
+        cursor.execute("SELECT mac_address FROM white_list")
+        rows = cursor.fetchall()
+
+        # Clear the whiteListWidget
+        self.whiteListWidget.clear()
+
+        # Display the loaded data in the whiteListWidget
+        for row in rows:
+            mac_address = row[0]
+            self.whiteListWidget.append(mac_address)
+            self.white_list.append(mac_address)
+
+        # Close the connection
+        conn.close()
 
 
 class MainWindow(QMainWindow):    
