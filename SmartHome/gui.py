@@ -19,6 +19,7 @@ import data_acq as da
 import pyqtgraph as pg
 
 import logging
+import re
 
 # Gets or creates a logger
 logger = logging.getLogger(__name__)  
@@ -473,17 +474,26 @@ class SnifferDock(QDockWidget):
         self.mc.get_sniffer_events().on_all_devices_detected -= self.update_mess_win
         self.mc.get_sniffer_events().on_all_devices_detected += self.update_mess_win
         self.mc.start_network_sniffer()
-        self.update_mess_win("started")
+        self.update_mess_win("started", 'black')
         self.eStartSniffingButton.setStyleSheet("background-color: green")
 
     def on_button_stop_click(self):
         self.mc.stop_network_sniffer()
-        self.update_mess_win("stopped")
+        self.update_mess_win("stopped", 'black')
         self.eStartSniffingButton.setStyleSheet("background-color: green")
 
     # create function that update text in received message window
-    def update_mess_win(self, text):
-        self.eRecMess.append(text)
+    def update_mess_win(self, text, color='darkgoldenrod'):
+        color_format = QTextCharFormat()
+        color_format.setForeground(QColor(color))
+
+        cursor = self.eRecMess.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        self.eRecMess.setTextCursor(cursor)
+
+        self.eRecMess.setCurrentCharFormat(color_format)
+        self.eRecMess.insertPlainText(text + '\n')
+        self.eRecMess.moveCursor(QTextCursor.End)
 
     def on_button_publish_click(self):
         self.mc.publish_to(self.ePublisherTopic.text(), self.eMessageBox.toPlainText())
@@ -493,9 +503,10 @@ class SnifferDock(QDockWidget):
 class WhiteListDock(QDockWidget):
     """White List"""
 
-    def __init__(self, mc):
+    def __init__(self, mc, sniffer):
         QDockWidget.__init__(self)
         self.mc = mc
+        self.sniffer = sniffer
         self.sniffData = QLabel()
         self.sniffData.setStyleSheet("color: blue")
         self.eRecMess = QTextEdit()
@@ -536,15 +547,33 @@ class WhiteListDock(QDockWidget):
 
     def addMacToWhiteList(self):
         mac_address = self.macLineEdit.text()
-        if mac_address:
+        if mac_address and self.validateMacAddress(mac_address) and mac_address not in self.white_list:
             self.white_list.append(mac_address)
             self.updateWhiteListWidget()
             self.macLineEdit.clear()
+            self.sniffer.update_mess_win(f'{mac_address} is added to the White List', 'green')
+
+    '''
+    ^ represents the starting of the string.
+    ([0-9A-Fa-f]{2}[:-]){5} represents the five groups of two hexadecimal digits separated by hyphens (-) or colons (:)
+    ([0-9A-Fa-f]{2}) represents the one groups of two hexadecimal digits.
+    | represents the or.
+    ( represents the starting of the group.
+    [0-9a-fA-F]{4}\\. represents the first part of four hexadecimal digits separated by dots (.).
+    [0-9a-fA-F]{4}\\. represents the second part of four hexadecimal digits separated by dots (.).
+    [0-9a-fA-F]{4} represents the third part of four hexadecimal digits.
+    ) represents the ending of the group.
+    $ represents the ending of the string.
+    '''
+    def validateMacAddress(self, mac_address):
+        # Regular expression pattern for MAC address validation
+        pattern = r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})|([0-9a-fA-F]{4}\\.[0-9a-fA-F]{4}\\.[0-9a-fA-F]{4})$'
+        return re.match(pattern, mac_address.lower()) is not None
 
     def deleteSelectedMac(self):
         cursor = self.whiteListWidget.textCursor()
-        cursor.select(QTextCursor.WordUnderCursor)
-        selected_text = cursor.selectedText()
+        cursor.select(QTextCursor.LineUnderCursor)
+        selected_text = cursor.selectedText().strip()
 
         if selected_text:
             # Ask for confirmation before deleting
@@ -555,6 +584,7 @@ class WhiteListDock(QDockWidget):
             if confirm == QMessageBox.Yes:
                 self.white_list.remove(selected_text)
                 self.updateWhiteListWidget()
+                self.sniffer.update_mess_win(f'{selected_text} is deleted to the White List', 'red')
 
     def updateWhiteListWidget(self):
         self.whiteListWidget.clear()
@@ -580,7 +610,7 @@ class MainWindow(QMainWindow):
         self.graphsDock = GraphsDock(self.mc)
         self.airconditionDock= AirconditionDock(self.mc)
         self.snifferDock = SnifferDock(self.mc)
-        self.whiteListDock = WhiteListDock(self.mc)
+        self.whiteListDock = WhiteListDock(self.mc, self.snifferDock)
         self.plotsDock = PlotDock()
         self.addDockWidget(Qt.TopDockWidgetArea, self.connectionDock)
         self.addDockWidget(Qt.TopDockWidgetArea, self.tempDock)
