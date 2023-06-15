@@ -19,6 +19,9 @@ import data_acq as da
 import pyqtgraph as pg
 
 import logging
+import re
+import sqlite3
+from init import *
 
 # Gets or creates a logger
 logger = logging.getLogger(__name__)  
@@ -473,21 +476,188 @@ class SnifferDock(QDockWidget):
         self.mc.get_sniffer_events().on_all_devices_detected -= self.update_mess_win
         self.mc.get_sniffer_events().on_all_devices_detected += self.update_mess_win
         self.mc.start_network_sniffer()
-        self.update_mess_win("started")
+        self.update_mess_win("started", 'black')
         self.eStartSniffingButton.setStyleSheet("background-color: green")
 
     def on_button_stop_click(self):
         self.mc.stop_network_sniffer()
-        self.update_mess_win("stopped")
+        self.update_mess_win("stopped", 'black')
         self.eStartSniffingButton.setStyleSheet("background-color: green")
 
     # create function that update text in received message window
-    def update_mess_win(self, text):
-        self.eRecMess.append(text)
+    def update_mess_win(self, text, color='darkgoldenrod'):
+        color_format = QTextCharFormat()
+        color_format.setForeground(QColor(color))
+
+        cursor = self.eRecMess.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        self.eRecMess.setTextCursor(cursor)
+
+        self.eRecMess.setCurrentCharFormat(color_format)
+        self.eRecMess.insertPlainText(text + '\n')
+        self.eRecMess.moveCursor(QTextCursor.End)
 
     def on_button_publish_click(self):
         self.mc.publish_to(self.ePublisherTopic.text(), self.eMessageBox.toPlainText())
         self.ePublishButton.setStyleSheet("background-color: yellow")
+
+
+class WhiteListDock(QDockWidget):
+    """White List"""
+
+    def __init__(self, mc, sniffer):
+        QDockWidget.__init__(self)
+        self.mc = mc
+        self.sniffer = sniffer
+        self.sniffData = QLabel()
+        self.sniffData.setStyleSheet("color: blue")
+        self.eRecMess = QTextEdit()
+        self.saveButton = QPushButton("Save", self)
+
+        # Create the necessary widgets for the white list functionality
+        self.macLineEdit = QLineEdit()
+        self.addButton = QPushButton("Add to White List")
+        self.deleteButton = QPushButton("Delete Selected")
+        self.whiteListWidget = QTextEdit()
+        self.whiteListWidget.setReadOnly(True)
+        self.whiteListWidget.setAcceptRichText(False)
+
+
+        # Connect the buttons to the appropriate slots
+        self.addButton.clicked.connect(self.addMacToWhiteList)
+        self.deleteButton.clicked.connect(self.deleteSelectedMac)
+        self.saveButton.clicked.connect(self.saveWhiteList)
+
+        # Create the layout for the white list section
+        whiteListLayout = QVBoxLayout()
+        whiteListLayout.addWidget(self.macLineEdit)
+
+        buttonLayout = QHBoxLayout()
+        buttonLayout.addWidget(self.addButton)
+        buttonLayout.addWidget(self.deleteButton)
+
+        whiteListLayout.addLayout(buttonLayout)
+        whiteListLayout.addWidget(self.whiteListWidget)
+        whiteListLayout.addWidget(self.saveButton)
+
+        # Create a main widget and set the layout
+        widget = QWidget(self)
+        widget.setLayout(whiteListLayout)
+
+        self.setTitleBarWidget(widget)
+        self.setWidget(widget)
+        self.setWindowTitle("White List")
+
+        # Initialize the white list
+        self.white_list = []
+        self.loadWhiteList()
+
+    def addMacToWhiteList(self):
+        mac_address = self.macLineEdit.text()
+        if mac_address and self.validateMacAddress(mac_address) and mac_address not in self.white_list:
+            self.white_list.append(mac_address)
+            self.updateWhiteListWidget()
+            self.macLineEdit.clear()
+            self.sniffer.update_mess_win(f'{mac_address} is added to the White List', 'green')
+
+    '''
+    ^ represents the starting of the string.
+    ([0-9A-Fa-f]{2}[:-]){5} represents the five groups of two hexadecimal digits separated by hyphens (-) or colons (:)
+    ([0-9A-Fa-f]{2}) represents the one groups of two hexadecimal digits.
+    | represents the or.
+    ( represents the starting of the group.
+    [0-9a-fA-F]{4}\\. represents the first part of four hexadecimal digits separated by dots (.).
+    [0-9a-fA-F]{4}\\. represents the second part of four hexadecimal digits separated by dots (.).
+    [0-9a-fA-F]{4} represents the third part of four hexadecimal digits.
+    ) represents the ending of the group.
+    $ represents the ending of the string.
+    '''
+    def validateMacAddress(self, mac_address):
+        # Regular expression pattern for MAC address validation
+        pattern = r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})|([0-9a-fA-F]{4}\\.[0-9a-fA-F]{4}\\.[0-9a-fA-F]{4})$'
+        return re.match(pattern, mac_address.lower()) is not None
+
+    def deleteSelectedMac(self):
+        cursor = self.whiteListWidget.textCursor()
+        cursor.select(QTextCursor.LineUnderCursor)
+        selected_text = cursor.selectedText().strip()
+
+        if selected_text:
+            # Ask for confirmation before deleting
+            confirm = QMessageBox.question(self, "Confirmation",
+                                           f"Are you sure you want to delete the selected MAC address: '{selected_text}'?",
+                                           QMessageBox.Yes | QMessageBox.No)
+
+            if confirm == QMessageBox.Yes:
+                self.white_list.remove(selected_text)
+                self.updateWhiteListWidget()
+                self.sniffer.update_mess_win(f'{selected_text} is deleted to the White List', 'red')
+
+    def updateWhiteListWidget(self):
+        self.whiteListWidget.clear()
+        for mac_address in self.white_list:
+            self.whiteListWidget.append(mac_address)
+
+    def saveWhiteList(self):
+        # Open a connection to the existing database
+        conn = sqlite3.connect(db_name)
+        cursor = conn.cursor()
+
+        # Check if the table exists, and if not, create it
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='white_list'")
+        table_exists = cursor.fetchone()
+        if not table_exists:
+            cursor.execute("CREATE TABLE white_list (mac_address TEXT)")
+
+        # Get the existing MAC addresses from the database
+        cursor.execute("SELECT mac_address FROM white_list")
+        existing_mac_addresses = [row[0] for row in cursor.fetchall()]
+
+        # Insert or update each white list item
+        for mac_address in self.white_list:
+            if mac_address not in existing_mac_addresses:
+                # MAC address doesn't exist in the database, perform insert
+                cursor.execute("INSERT INTO white_list (mac_address) VALUES (?)", (mac_address,))
+            else:
+                existing_mac_addresses.remove(mac_address)
+
+        # Delete any remaining MAC addresses from the database
+        for mac_address in existing_mac_addresses:
+            cursor.execute("DELETE FROM white_list WHERE mac_address=?", (mac_address,))
+
+        # Commit the changes and close the connection
+        conn.commit()
+        conn.close()
+        self.sniffer.update_mess_win('saved', 'blue')
+
+    def loadWhiteList(self):
+        # Open a connection to the existing database
+        conn = sqlite3.connect(db_name)
+        cursor = conn.cursor()
+
+        # Check if the table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='white_list'")
+        table_exists = cursor.fetchone()
+        if not table_exists:
+            # Table doesn't exist, return or handle the case as needed
+            conn.close()
+            return
+
+        # Fetch all rows from the white_list table
+        cursor.execute("SELECT mac_address FROM white_list")
+        rows = cursor.fetchall()
+
+        # Clear the whiteListWidget
+        self.whiteListWidget.clear()
+
+        # Display the loaded data in the whiteListWidget
+        for row in rows:
+            mac_address = row[0]
+            self.whiteListWidget.append(mac_address)
+            self.white_list.append(mac_address)
+
+        # Close the connection
+        conn.close()
 
 
 class MainWindow(QMainWindow):    
@@ -508,6 +678,7 @@ class MainWindow(QMainWindow):
         self.graphsDock = GraphsDock(self.mc)
         self.airconditionDock= AirconditionDock(self.mc)
         self.snifferDock = SnifferDock(self.mc)
+        self.whiteListDock = WhiteListDock(self.mc, self.snifferDock)
         self.plotsDock = PlotDock()
         self.addDockWidget(Qt.TopDockWidgetArea, self.connectionDock)
         self.addDockWidget(Qt.TopDockWidgetArea, self.tempDock)
@@ -516,6 +687,7 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.BottomDockWidgetArea, self.graphsDock)
         self.addDockWidget(Qt.BottomDockWidgetArea, self.plotsDock)       
         self.addDockWidget(Qt.BottomDockWidgetArea, self.snifferDock)
+        self.addDockWidget(Qt.BottomDockWidgetArea, self.whiteListDock)
 
 if __name__ == "__main__":
     try:
