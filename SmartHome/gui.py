@@ -628,6 +628,7 @@ class WhiteListDock(QDockWidget):
         # Commit the changes and close the connection
         conn.commit()
         conn.close()
+        self.sniffer.update_mess_win('saved', 'blue')
 
     def loadWhiteList(self):
         # Open a connection to the existing database
