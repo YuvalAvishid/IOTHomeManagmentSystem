@@ -625,10 +625,12 @@ class WhiteListDock(QDockWidget):
         for mac_address in existing_mac_addresses:
             cursor.execute("DELETE FROM white_list WHERE mac_address=?", (mac_address,))
 
+        self.mc.set_sniffer_approved_mac(self.white_list[:])
+
         # Commit the changes and close the connection
         conn.commit()
         conn.close()
-        self.sniffer.update_mess_win('saved', 'blue')
+        self.sniffer.update_mess_win('saved to db!', 'blue')
 
     def loadWhiteList(self):
         # Open a connection to the existing database
@@ -655,6 +657,8 @@ class WhiteListDock(QDockWidget):
             mac_address = row[0]
             self.whiteListWidget.append(mac_address)
             self.white_list.append(mac_address)
+
+        self.mc.set_sniffer_approved_mac(self.white_list[:])
 
         # Close the connection
         conn.close()
@@ -689,12 +693,16 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.BottomDockWidgetArea, self.snifferDock)
         self.addDockWidget(Qt.BottomDockWidgetArea, self.whiteListDock)
 
+    def close(self):
+        self.mc.stop_network_sniffer()
+
 if __name__ == "__main__":
     try:
         app = QApplication(sys.argv)
         mainwin = MainWindow()
         mainwin.show()
         app.exec_()
+        mainwin.close()
 
     except:
         logger.exception("GUI Crash!")

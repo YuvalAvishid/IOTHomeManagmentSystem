@@ -131,4 +131,7 @@ class Mqtt_client():
     def get_sniffer_events(self):
         return sniffer.events
 
+    def set_sniffer_approved_mac(self,mac_address):
+        self.network_scanner.approved_mac = mac_address
+
   

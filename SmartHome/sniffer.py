@@ -43,6 +43,7 @@ class network_scanner():
         self.t1 = threading.Thread()
         self.running = False
         self.data = ""
+        self.approved_mac = {}
         self.ip = self.get_ip()
         # Define the range of IP addresses to scan - Will define the target IP in the file.
         self.ip_range = self.transform_ip_port(self.ip)
@@ -109,19 +110,20 @@ class network_scanner():
         # Check if the MAC address has already been seen before
         for packet in answered:
             mac_address = packet[1].hwsrc
-            if mac_address not in self.mac_list:
-                company_name = self.get_company_name(mac_address)
-                self.mac_list[mac_address] = company_name
-                data_to_print = self.on_device_detected(packet[1].psrc, mac_address, company_name)
-                if data_to_print is not None:
-                    print(data_to_print)
-                    should_print = True
-            else:
-                if self.mac_list[mac_address] == 'Unknown':
+            if mac_address not in self.approved_mac:
+                if mac_address not in self.mac_list:
                     company_name = self.get_company_name(mac_address)
                     self.mac_list[mac_address] = company_name
-                    print(self.on_detected_device_updated(packet[1].psrc, mac_address, company_name))
-                    should_print = True
+                    data_to_print = self.on_device_detected(packet[1].psrc, mac_address, company_name)
+                    if data_to_print is not None:
+                        print(data_to_print)
+                        should_print = True
+                else:
+                    if self.mac_list[mac_address] == 'Unknown':
+                        company_name = self.get_company_name(mac_address)
+                        self.mac_list[mac_address] = company_name
+                        print(self.on_detected_device_updated(packet[1].psrc, mac_address, company_name))
+                        should_print = True
 
         if should_print:
             self.data = self.data.rstrip('\n')
