@@ -471,6 +471,7 @@ class SnifferDock(QDockWidget):
         self.setTitleBarWidget(widget)
         self.setWidget(widget)
         self.setWindowTitle("Sniffer")
+        self.popup_shown = False
 
     def on_button_start_click(self):
         self.mc.get_sniffer_events().on_all_devices_detected -= self.update_mess_win
@@ -496,6 +497,21 @@ class SnifferDock(QDockWidget):
         self.eRecMess.setCurrentCharFormat(color_format)
         self.eRecMess.insertPlainText(text + '\n')
         self.eRecMess.moveCursor(QTextCursor.End)
+
+        if 'new' in text.lower() and not self.popup_shown:
+            self.popup_shown = True
+            QTimer.singleShot(0, self.show_popup_message)
+
+    def show_popup_message(self):
+        message_box = QMessageBox(self)
+        message_box.finished.connect(self.popup_closed)
+        message_box.setWindowTitle('Unauthorized MAC Addresses')
+        message_box.setText('Unauthorized MAC addresses have been found.')
+        message_box.setIcon(QMessageBox.Warning)
+        message_box.exec_()
+
+    def popup_closed(self):
+        self.popup_shown = False
 
     def on_button_publish_click(self):
         self.mc.publish_to(self.ePublisherTopic.text(), self.eMessageBox.toPlainText())
